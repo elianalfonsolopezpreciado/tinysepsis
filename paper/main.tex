@@ -22,7 +22,7 @@
 \title{\textbf{TinySepsis: Calibrated, Low-Resource Early Warning\\ for Sepsis with Compact Temporal Models}}
 
 \author{
-  TinySepsis Contributors\thanks{Correspondence: \texttt{inovation.of.the.pear@gmail.com}. Code and reproduction scripts: \url{https://github.com/} (private repository at time of writing; see README for release status).}
+  TinySepsis Contributors\thanks{Correspondence: \texttt{inovation.of.the.pear@gmail.com}. Code, trained weights, and reproduction scripts: \url{https://github.com/elianalfonsolopezpreciado/tinysepsis} (public, MIT-licensed).}
 }
 \date{August 2026}
 
@@ -189,9 +189,11 @@ Table~\ref{tab:main_results} reports discrimination (AUROC, AUPRC), calibration 
 \input{tables/main_results.tex}
 \end{table}
 
+Normalized utility is negative for four of the six models in Table~\ref{tab:main_results}, which is a direct consequence of the severe hour-level class imbalance (1.4\% positive prevalence) rather than a broken metric. The alarms-per-1000h and utility columns are both computed at a shared, clinically-motivated 85\%-sensitivity operating point, fixed across models for comparability; reaching 85\% sensitivity on such a rare event necessarily requires a low decision threshold, so the majority of alarmed hours are false positives on non-septic patients. Each false alarm costs $u_{\text{fp}}=-0.05$ (Section~\ref{sec:utility}), and because non-septic patient-hours vastly outnumber the modeled pre-suspicion septic-patient hours, this accumulated penalty exceeds the reward earned from correctly-flagged septic hours whenever a model's false-alarm rate is high relative to its true-positive yield --- exactly the alarm-fatigue failure mode the utility metric is designed to surface \citep{sendak2020real}. XGBoost is the exception (+0.133) precisely because it reaches the same sensitivity target with the lowest alarm rate in the table (417 vs.\ 604 alarms/1000h for TinySepsis), illustrating why alarms-per-1000h and normalized utility should always be read together rather than either in isolation.
+
 \subsection{External validation (Hospital B)}
 \label{sec:external}
-Table~\ref{tab:external_results} reports the identical metrics on Hospital B, a hospital system never seen during training, validation, calibration fitting, or model selection. The gap between Tables~\ref{tab:main_results} and \ref{tab:external_results} is, by design, the primary robustness signal of this paper: a model whose AUROC or calibration collapses on Hospital B despite strong Hospital-A numbers reproduces exactly the failure mode documented for the Epic Sepsis Model \citep{wong2021external}, and a model that degrades gracefully is doing something more clinically meaningful than winning an internal leaderboard.
+Table~\ref{tab:external_results} reports the identical metrics on Hospital B, a hospital system never seen during training, validation, calibration fitting, or model selection. The gap between Tables~\ref{tab:main_results} and \ref{tab:external_results} is, by design, the primary robustness signal of this paper: a model whose AUROC or calibration collapses on Hospital B despite strong Hospital-A numbers reproduces exactly the failure mode documented for the Epic Sepsis Model \citep{wong2021external}, and a model that degrades gracefully is doing something more clinically meaningful than winning an internal leaderboard. Normalized utility is negative for \emph{every} model here, including XGBoost: Hospital B's lower sepsis prevalence (0.9\% vs.\ 1.4\%) shifts the same 85\%-sensitivity threshold to an even less favorable false-positive-to-true-positive ratio, and the AUROC/calibration degradation documented above compounds the false-alarm-accumulation effect described for the internal split. This is the same mechanism, not a separate anomaly, and it is the clearest illustration in this paper of why a discrimination metric alone would have hidden a real deployability problem.
 
 \begin{table}[t]
 \centering
@@ -214,14 +216,14 @@ Table~\ref{tab:calibration} reports expected calibration error before and after 
 \centering
 \begin{subfigure}[b]{0.48\linewidth}
 \centering
-\includegraphics[width=\linewidth]{figures/calibration_curves.png}
+\includegraphics[width=\linewidth]{figures/calibration_curves.pdf}
 \caption{Calibration curves (internal test).}
 \label{fig:calcurve}
 \end{subfigure}
 \hfill
 \begin{subfigure}[b]{0.48\linewidth}
 \centering
-\includegraphics[width=\linewidth]{figures/decision_curve.png}
+\includegraphics[width=\linewidth]{figures/decision_curve.pdf}
 \caption{Decision curve analysis (internal test).}
 \label{fig:decisioncurve}
 \end{subfigure}
@@ -255,7 +257,7 @@ To probe which of the four missingness-aware channels (measured value, observati
 
 \begin{figure}[t]
 \centering
-\includegraphics[width=0.7\linewidth]{figures/shap_group_importance.png}
+\includegraphics[width=0.7\linewidth]{figures/shap_group_importance.pdf}
 \caption{Summed mean $|\text{SHAP value}|$ per input-channel group (34 raw clinical variables each), XGBoost baseline, internal test split.}
 \label{fig:shap}
 \end{figure}
@@ -299,7 +301,7 @@ We presented TinySepsis, a sub-200K-parameter recurrent model for early sepsis p
 This work uses the PhysioNet/Computing in Cardiology Challenge 2019 dataset \citep{reyna2019early}, made openly available by its organizers and contributors; we thank them for enabling fully reproducible research on early sepsis prediction without a credentialing barrier.
 
 \section*{Code and Data Availability}
-Code, trained model weights, the exact feature-engineering pipeline, and scripts to regenerate every table and figure in this paper from the raw, publicly downloadable dataset are available in the accompanying repository (see title-page footnote for current release status). The underlying clinical dataset is not redistributed; \texttt{scripts/download\_data.py} fetches it directly from PhysioNet's open-access S3 mirror.
+Code, trained model weights, the exact feature-engineering pipeline, and scripts to regenerate every table and figure in this paper from the raw, publicly downloadable dataset are available at \url{https://github.com/elianalfonsolopezpreciado/tinysepsis} (MIT license). The underlying clinical dataset is not redistributed; \texttt{scripts/download\_data.py} fetches it directly from PhysioNet's open-access S3 mirror.
 
 \bibliographystyle{plainnat}
 \bibliography{references}

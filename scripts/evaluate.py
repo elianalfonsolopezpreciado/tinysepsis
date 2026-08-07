@@ -144,7 +144,7 @@ def main():
     ax.set_title("Calibration (test, internal hospital A)")
     ax.legend(fontsize=7)
     fig.tight_layout()
-    fig.savefig(FIG_DIR / "calibration_curves.png", dpi=150)
+    fig.savefig(FIG_DIR / "calibration_curves.pdf")
     plt.close(fig)
 
     # --- Decision curve (main model vs baselines, test split) ---
@@ -165,7 +165,7 @@ def main():
     ax.legend(fontsize=7)
     ax.set_ylim(-0.05, max(0.1, float(np.nanmax(dc["net_benefit_model"])) + 0.02))
     fig.tight_layout()
-    fig.savefig(FIG_DIR / "decision_curve.png", dpi=150)
+    fig.savefig(FIG_DIR / "decision_curve.pdf")
     plt.close(fig)
 
     # --- Subgroup analysis (age, sex) for the main model ---

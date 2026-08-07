@@ -8,6 +8,25 @@ dataset — no PhysioNet account, CITI training, or data use agreement required.
 
 See [`paper/main.pdf`](paper/main.pdf) for the full writeup (methods, results, limitations, ethics).
 
+## Headline result
+
+Trained on Hospital A (PhysioNet Challenge 2019) and evaluated, without any further tuning, on Hospital B
+(a different institution never seen during development):
+
+| Model | Internal AUROC (Hospital A) | External AUROC (Hospital B) | Drop |
+|---|---|---|---|
+| XGBoost | 0.807 | 0.687 | −0.120 |
+| Logistic Regression | 0.770 | 0.644 | −0.126 |
+| LightGBM | 0.782 | 0.665 | −0.117 |
+| **TinySepsis (ours)** | 0.699 | **0.680** | **−0.019** |
+
+The tabular baselines win internally but lose 0.10–0.13 AUROC on the external hospital; TinySepsis loses
+almost none, ending within 0.01 AUROC of the best tabular baseline externally despite trailing it by over
+0.1 internally. This is the same internal-vs-external gap pattern documented for the Epic Sepsis Model in
+real-world deployment (Wong et al., *JAMA Internal Medicine*, 2021) — reproduced here in miniature, under
+full experimental control, with a full accounting in `paper/main.pdf` (Sections 8–9) including the
+single-run-variance caveat (Section "Limitations").
+
 ## What this is
 
 - A fully reproducible pipeline: raw `.psv` files → missingness-aware feature engineering → patient-level

@@ -76,7 +76,7 @@ def main():
     ax.invert_yaxis()
     fig.tight_layout()
     FIG_DIR.mkdir(parents=True, exist_ok=True)
-    fig.savefig(FIG_DIR / "shap_group_importance.png", dpi=150)
+    fig.savefig(FIG_DIR / "shap_group_importance.pdf")
     plt.close(fig)
 
     top_idx = np.argsort(mean_abs)[::-1][:15]
