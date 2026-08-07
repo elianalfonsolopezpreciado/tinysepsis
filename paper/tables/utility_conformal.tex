@@ -1,0 +1,18 @@
+\begin{tabular}{lccccc}
+\toprule
+Model & Split & $\tau$ & Realized FPR & Alarms/1000h & Norm.\ Utility \\
+\midrule
+qSOFA (lite) & test & 0.016 & 0.362 & 363.0 & -0.264 \\
+qSOFA (lite) & external & 0.016 & 0.311 & 311.8 & -0.530 \\
+NEWS2 (lite) & test & 0.022 & 0.060 & 60.9 & -0.007 \\
+NEWS2 (lite) & external & 0.022 & 0.061 & 62.1 & -0.060 \\
+Logistic Regression & test & 0.034 & 0.121 & 125.1 & 0.287 \\
+Logistic Regression & external & 0.034 & 0.049 & 51.0 & 0.121 \\
+XGBoost & test & 0.028 & 0.111 & 116.5 & 0.366 \\
+XGBoost & external & 0.028 & 0.060 & 61.5 & 0.157 \\
+LightGBM & test & 0.029 & 0.098 & 102.8 & 0.317 \\
+LightGBM & external & 0.029 & 0.043 & 44.2 & 0.126 \\
+\textbf{TinySepsis (ours)} & test & 0.028 & 0.137 & 140.1 & 0.152 \\
+\textbf{TinySepsis (ours)} & external & 0.028 & \textbf{0.198} & 199.8 & \textbf{-0.129} \\
+\bottomrule
+\end{tabular}

@@ -1,0 +1,32 @@
+{
+  "qsofa": {
+    "temperature": 4.081866264343262,
+    "conformal_tau": 0.01609242893755436,
+    "alpha": 0.1
+  },
+  "news2": {
+    "temperature": 0.5693086981773376,
+    "conformal_tau": 0.022288817912340164,
+    "alpha": 0.1
+  },
+  "logreg": {
+    "temperature": 0.9999732971191406,
+    "conformal_tau": 0.034117646515369415,
+    "alpha": 0.1
+  },
+  "xgboost": {
+    "temperature": 0.7093538641929626,
+    "conformal_tau": 0.02839372679591179,
+    "alpha": 0.1
+  },
+  "lightgbm": {
+    "temperature": 0.767167866230011,
+    "conformal_tau": 0.029411764815449715,
+    "alpha": 0.1
+  },
+  "tinysepsis": {
+    "temperature": 0.8327436447143555,
+    "conformal_tau": 0.028184089809656143,
+    "alpha": 0.1
+  }
+}

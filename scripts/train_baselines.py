@@ -3,7 +3,7 @@ baselines on the tabular (current-hour) feature representation, for the
 label_6h primary task. Saves predictions (probabilities) for every split to
 Parquet so downstream evaluation/calibration/plots can reuse them.
 """
-import json
+import argparse
 import sys
 from pathlib import Path
 
@@ -58,6 +58,17 @@ def save_predictions(name, split, pid, hour, y, prob, sub):
 
 
 def main():
+    p = argparse.ArgumentParser()
+    p.add_argument("--seed", type=int, default=42,
+                    help="random_state for LogReg/XGBoost/LightGBM (qSOFA/NEWS2 are deterministic scores, unaffected)")
+    p.add_argument("--tag-suffix", default="",
+                    help="appended to model names in output filenames, e.g. '_seed1' for multi-seed runs")
+    p.add_argument("--skip-clinical-scores", action="store_true",
+                    help="skip qSOFA/NEWS2 (deterministic; redundant across seeds in a multi-seed sweep)")
+    p.add_argument("--only", nargs="*", default=None, choices=["logreg", "xgboost", "lightgbm"],
+                    help="train only these ML models (default: all three)")
+    args = p.parse_args()
+
     CKPT_DIR.mkdir(parents=True, exist_ok=True)
     print("Loading enriched.parquet...", flush=True)
     df = pl.read_parquet(DATA_PATH)
@@ -71,71 +82,77 @@ def main():
     splits = ["train", "val", "test", "external_test"]
     data = {s: load_split(df, s) for s in splits}
 
-    # --- Clinical scores (no training needed; score itself = "risk") ---
-    for name, col in [("qsofa", "qsofa_lite"), ("news2", "news2_lite")]:
-        print(f"Scoring baseline: {name}", flush=True)
-        for split in splits:
-            sub = df.filter(pl.col("split") == split)
-            prob = (sub[col].to_numpy().astype(np.float32))
-            prob = prob / max(prob.max(), 1.0)  # crude [0,1] normalization for AUROC-safe scoring
-            save_predictions(name, split, sub["patient_id"].to_numpy(), sub["ICULOS"].to_numpy(),
-                              sub[LABEL].to_numpy(), prob, sub)
+    if not args.skip_clinical_scores:
+        # --- Clinical scores (no training needed; score itself = "risk") ---
+        for name, col in [("qsofa", "qsofa_lite"), ("news2", "news2_lite")]:
+            print(f"Scoring baseline: {name}", flush=True)
+            for split in splits:
+                sub = df.filter(pl.col("split") == split)
+                prob = (sub[col].to_numpy().astype(np.float32))
+                prob = prob / max(prob.max(), 1.0)  # crude [0,1] normalization for AUROC-safe scoring
+                save_predictions(name, split, sub["patient_id"].to_numpy(), sub["ICULOS"].to_numpy(),
+                                  sub[LABEL].to_numpy(), prob, sub)
 
     X_train, y_train, pid_train, hour_train, _ = data["train"]
     X_val, y_val, pid_val, hour_val, _ = data["val"]
 
     pos_rate = y_train.mean()
     print(f"Train positive rate ({LABEL}): {pos_rate:.4f}", flush=True)
-
-    # --- Logistic Regression ---
-    print("Training Logistic Regression...", flush=True)
-    logreg = LogisticRegression(max_iter=500, class_weight="balanced", C=1.0)
-    logreg.fit(X_train, y_train)
-    for split in splits:
-        X, y, pid, hour, sub = data[split]
-        prob = logreg.predict_proba(X)[:, 1]
-        save_predictions("logreg", split, pid, hour, y, prob, sub)
-
-    # --- XGBoost ---
-    print("Training XGBoost...", flush=True)
     scale_pos_weight = (1 - pos_rate) / pos_rate
-    xgb_model = xgb.XGBClassifier(
-        n_estimators=300,
-        max_depth=5,
-        learning_rate=0.05,
-        subsample=0.8,
-        colsample_bytree=0.8,
-        scale_pos_weight=scale_pos_weight,
-        eval_metric="aucpr",
-        n_jobs=-1,
-        tree_method="hist",
-    )
-    xgb_model.fit(X_train, y_train, eval_set=[(X_val, y_val)], verbose=False)
-    for split in splits:
-        X, y, pid, hour, sub = data[split]
-        prob = xgb_model.predict_proba(X)[:, 1]
-        save_predictions("xgboost", split, pid, hour, y, prob, sub)
-    xgb_model.save_model(str(CKPT_DIR / "xgboost.json"))
 
-    # --- LightGBM ---
-    print("Training LightGBM...", flush=True)
-    lgb_model = lgb.LGBMClassifier(
-        n_estimators=300,
-        max_depth=6,
-        learning_rate=0.05,
-        subsample=0.8,
-        colsample_bytree=0.8,
-        scale_pos_weight=scale_pos_weight,
-        n_jobs=-1,
-        verbosity=-1,
-    )
-    lgb_model.fit(X_train, y_train, eval_set=[(X_val, y_val)])
-    for split in splits:
-        X, y, pid, hour, sub = data[split]
-        prob = lgb_model.predict_proba(X)[:, 1]
-        save_predictions("lightgbm", split, pid, hour, y, prob, sub)
+    models_to_run = args.only if args.only else ["logreg", "xgboost", "lightgbm"]
 
-    lgb_model.booster_.save_model(str(CKPT_DIR / "lightgbm.txt"))
+    if "logreg" in models_to_run:
+        print("Training Logistic Regression...", flush=True)
+        logreg = LogisticRegression(max_iter=500, class_weight="balanced", C=1.0, random_state=args.seed)
+        logreg.fit(X_train, y_train)
+        for split in splits:
+            X, y, pid, hour, sub = data[split]
+            prob = logreg.predict_proba(X)[:, 1]
+            save_predictions(f"logreg{args.tag_suffix}", split, pid, hour, y, prob, sub)
+
+    if "xgboost" in models_to_run:
+        print("Training XGBoost...", flush=True)
+        xgb_model = xgb.XGBClassifier(
+            n_estimators=300,
+            max_depth=5,
+            learning_rate=0.05,
+            subsample=0.8,
+            colsample_bytree=0.8,
+            scale_pos_weight=scale_pos_weight,
+            eval_metric="aucpr",
+            n_jobs=-1,
+            tree_method="hist",
+            random_state=args.seed,
+        )
+        xgb_model.fit(X_train, y_train, eval_set=[(X_val, y_val)], verbose=False)
+        for split in splits:
+            X, y, pid, hour, sub = data[split]
+            prob = xgb_model.predict_proba(X)[:, 1]
+            save_predictions(f"xgboost{args.tag_suffix}", split, pid, hour, y, prob, sub)
+        if not args.tag_suffix:
+            xgb_model.save_model(str(CKPT_DIR / "xgboost.json"))
+
+    if "lightgbm" in models_to_run:
+        print("Training LightGBM...", flush=True)
+        lgb_model = lgb.LGBMClassifier(
+            n_estimators=300,
+            max_depth=6,
+            learning_rate=0.05,
+            subsample=0.8,
+            colsample_bytree=0.8,
+            scale_pos_weight=scale_pos_weight,
+            n_jobs=-1,
+            verbosity=-1,
+            random_state=args.seed,
+        )
+        lgb_model.fit(X_train, y_train, eval_set=[(X_val, y_val)])
+        for split in splits:
+            X, y, pid, hour, sub = data[split]
+            prob = lgb_model.predict_proba(X)[:, 1]
+            save_predictions(f"lightgbm{args.tag_suffix}", split, pid, hour, y, prob, sub)
+        if not args.tag_suffix:
+            lgb_model.booster_.save_model(str(CKPT_DIR / "lightgbm.txt"))
 
     print("All baselines trained and predictions saved.", flush=True)
 

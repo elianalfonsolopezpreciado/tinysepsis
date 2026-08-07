@@ -6,6 +6,7 @@ Falls back to smaller config automatically on CUDA OOM.
 """
 import argparse
 import json
+import random
 import sys
 import time
 from pathlib import Path
@@ -59,10 +60,16 @@ def main():
     p.add_argument("--patience", type=int, default=4)
     p.add_argument("--tag", default="tinysepsis")
     p.add_argument("--ablation", default="full", choices=["full", "no_missingness", "no_dynamics"])
+    p.add_argument("--seed", type=int, default=0)
     args = p.parse_args()
 
+    random.seed(args.seed)
+    np.random.seed(args.seed)
+    torch.manual_seed(args.seed)
+    torch.cuda.manual_seed_all(args.seed)
+
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    print(f"Device: {device}", flush=True)
+    print(f"Device: {device}, seed: {args.seed}", flush=True)
     if device.type == "cuda":
         torch.cuda.reset_peak_memory_stats()
 
