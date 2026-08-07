@@ -35,9 +35,20 @@ def run_variant(v):
     print(f"Running: {' '.join(cmd)}", flush=True)
     result = subprocess.run(cmd, cwd=str(ROOT), capture_output=True, text=True)
     print(result.stdout[-3000:], flush=True)
-    if result.returncode != 0:
+
+    # train_model.py's own eval/save steps run to completion and print
+    # "external_test: AUROC=..." even on the rare runs where the *process*
+    # exits non-zero afterwards (observed: benign CUDA-context teardown
+    # noise on Windows after all real work -- training, evaluation, and
+    # file writes -- has already finished). Trust the artifact, not the
+    # exit code: only treat this as a real failure if the expected
+    # prediction file is actually missing.
+    expected = ROOT / "results" / "predictions" / f"{v['tag']}__external_test.parquet"
+    if not expected.exists():
         print(result.stderr[-3000:], flush=True)
-        raise RuntimeError(f"variant {v['tag']} failed")
+        raise RuntimeError(f"variant {v['tag']} failed: {expected} was not produced")
+    if result.returncode != 0:
+        print(f"note: subprocess exited {result.returncode} but outputs were written; continuing", flush=True)
 
 
 def main():

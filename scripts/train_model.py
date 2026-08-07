@@ -54,7 +54,7 @@ def main():
     p.add_argument("--batch-size", type=int, default=64)
     p.add_argument("--grad-accum", type=int, default=2)
     p.add_argument("--epochs", type=int, default=15)
-    p.add_argument("--lr", type=float, default=1e-3)
+    p.add_argument("--lr", type=float, default=3e-4)
     p.add_argument("--max-train-patients", type=int, default=None)
     p.add_argument("--patience", type=int, default=4)
     p.add_argument("--tag", default="tinysepsis")
@@ -63,6 +63,8 @@ def main():
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     print(f"Device: {device}", flush=True)
+    if device.type == "cuda":
+        torch.cuda.reset_peak_memory_stats()
 
     print("Loading datasets...", flush=True)
     train_ds = TinySepsisDataset(DATA_PATH, "train", seq_len=args.seq_len, label_col=args.label_col,
@@ -169,8 +171,10 @@ def main():
         print(f"{name}: AUROC={auroc(y_true, y_prob):.4f} AUPRC={auprc(y_true, y_prob):.4f} "
               f"-> saved {len(out)} predictions", flush=True)
 
+    peak_vram_gb = torch.cuda.max_memory_allocated() / 1e9 if device.type == "cuda" else None
     with open(CKPT_DIR / f"{args.tag}_meta.json", "w") as f:
-        json.dump({"n_params": n_params, "best_val_auroc": best_val_auroc, "args": vars(args)}, f, indent=2)
+        json.dump({"n_params": n_params, "best_val_auroc": best_val_auroc,
+                    "peak_vram_gb": peak_vram_gb, "args": vars(args)}, f, indent=2)
 
 
 if __name__ == "__main__":

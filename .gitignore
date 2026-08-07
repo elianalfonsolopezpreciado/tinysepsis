@@ -4,6 +4,7 @@ __pycache__/
 data/raw/
 data/processed/
 results/checkpoints/
+results/predictions/
 *.onnx
 .pytest_cache/
 .ipynb_checkpoints/

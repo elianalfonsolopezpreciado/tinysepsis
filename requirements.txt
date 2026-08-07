@@ -11,6 +11,7 @@ seaborn
 tqdm
 rich
 onnx
+onnxscript
 onnxruntime
 shap
 fastapi

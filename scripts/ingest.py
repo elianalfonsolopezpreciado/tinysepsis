@@ -75,7 +75,9 @@ def main():
     OUT_PATH.parent.mkdir(parents=True, exist_ok=True)
     full.write_parquet(OUT_PATH, compression="zstd")
     print(f"Wrote {full.height} rows, {n_after} patients -> {OUT_PATH}", flush=True)
-    print(full.group_by("hospital").agg(pl.col("patient_id").n_unique()), flush=True)
+    counts = full.group_by("hospital").agg(pl.col("patient_id").n_unique()).to_dicts()
+    for row in counts:
+        print(f"hospital {row['hospital']}: {row['patient_id']} patients", flush=True)
 
 
 if __name__ == "__main__":

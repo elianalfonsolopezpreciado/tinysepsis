@@ -48,6 +48,11 @@ def load_stats(path: Path) -> dict:
     return json.loads(path.read_text())
 
 
+Z_CLIP = 10.0  # guards against data-entry outliers (e.g. FiO2 recorded as
+# a raw percentage vs. fraction) blowing up fp16 inference; a z-score
+# beyond +/-10 SD carries no additional clinical information anyway.
+
+
 def apply_stats(df: pl.DataFrame, stats: dict) -> pl.DataFrame:
     cols = (
         NUMERIC_FEATURES
@@ -59,6 +64,6 @@ def apply_stats(df: pl.DataFrame, stats: dict) -> pl.DataFrame:
     for c in cols:
         s = stats[c]
         exprs.append(
-            ((pl.col(c).fill_null(s["mean"]) - s["mean"]) / s["std"]).alias(f"{c}__z")
+            ((pl.col(c).fill_null(s["mean"]) - s["mean"]) / s["std"]).clip(-Z_CLIP, Z_CLIP).alias(f"{c}__z")
         )
     return df.with_columns(exprs)

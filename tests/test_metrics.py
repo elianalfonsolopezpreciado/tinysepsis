@@ -62,3 +62,11 @@ def test_lead_time_sustained_alarm():
     hours = list(range(10, 20))
     lt = lead_time_hours(hours, t_susp=20, sustained=True)
     assert lt == 10.0
+
+
+def test_lead_time_accepts_float_hours():
+    # ICULOS is stored as float64 in the parquet pipeline; numpy.float64
+    # inputs must not crash the sustained-alarm range() scan.
+    hours = [10.0, 11.0, 12.0, 13.0, np.float64(14.0)]
+    lt = lead_time_hours(hours, t_susp=np.float64(15.0), sustained=True)
+    assert lt == 5.0

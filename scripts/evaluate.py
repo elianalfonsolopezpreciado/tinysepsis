@@ -84,8 +84,7 @@ def main():
             # Alarms/1000 patient-hours + utility + lead time at the
             # threshold achieving 85% sensitivity (a clinically-motivated
             # fixed operating point, consistent across models for comparison).
-            _, thr85 = sensitivity_at_specificity(y, p, 1.0)  # placeholder unused
-            sens85, thr_at_sens85 = specificity_at_sensitivity(y, p, 0.85)
+            spec_at_sens85, thr_at_sens85 = specificity_at_sensitivity(y, p, 0.85)
             y_bin = (p >= thr_at_sens85).astype(int)
             row["alarms_per_1000h"] = alarms_per_1000_patient_hours(y_bin, len(y))
 

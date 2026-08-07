@@ -1,6 +1,7 @@
+import numpy as np
 import polars as pl
 
-from tinysepsis.data.normalize import fit_stats, apply_stats
+from tinysepsis.data.normalize import fit_stats, apply_stats, Z_CLIP
 
 
 def _toy_enriched():
@@ -57,3 +58,15 @@ def test_constant_column_gets_std_floor_no_divide_by_zero():
     assert stats["Age"]["std"] == 1.0  # constant Age=50 -> std floored to 1.0, no NaN/inf
     out = apply_stats(df, stats)
     assert out["Age__z"].null_count() == 0
+
+
+def test_extreme_outlier_is_clipped_not_left_unbounded():
+    df = _toy_enriched()
+    stats = fit_stats(df)
+    # simulate a data-entry error far outside the training distribution
+    df = df.with_columns(pl.when(pl.arange(0, df.height) == 0).then(1e9).otherwise(pl.col("HR")).alias("HR"))
+    out = apply_stats(df, stats)
+    z = out["HR__z"].to_numpy()
+    assert z.max() <= Z_CLIP
+    assert z.min() >= -Z_CLIP
+    assert np.isfinite(z).all()

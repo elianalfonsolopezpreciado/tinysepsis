@@ -66,6 +66,7 @@ def write_results_table(df: pl.DataFrame, split: str, out_path: Path):
 
 def write_efficiency_table():
     latency_path = CKPT_DIR / "latency_benchmark.json"
+    meta_path = CKPT_DIR / "tinysepsis_meta.json"
     if not latency_path.exists():
         print("skip efficiency table: no latency benchmark yet")
         return
@@ -79,9 +80,13 @@ def write_efficiency_table():
         rf"ONNX model size (MB) & {d['onnx_file_size_mb']:.2f} \\",
         rf"PyTorch CPU latency (ms/sample) & {d['pytorch_cpu_latency_ms']:.3f} \\",
         rf"ONNX Runtime CPU latency (ms/sample) & {d['onnxruntime_cpu_latency_ms']:.3f} \\",
-        r"\bottomrule",
-        r"\end{tabular}",
     ]
+    if meta_path.exists():
+        meta = json.loads(meta_path.read_text())
+        vram = meta.get("peak_vram_gb")
+        if vram is not None:
+            lines.append(rf"Peak training VRAM (GB) & {vram:.2f} \\")
+    lines += [r"\bottomrule", r"\end{tabular}"]
     (OUT_DIR / "efficiency.tex").write_text("\n".join(lines) + "\n")
     print("wrote efficiency.tex")
 

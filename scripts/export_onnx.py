@@ -5,6 +5,7 @@ import time
 from pathlib import Path
 
 import numpy as np
+import onnx
 import onnxruntime as ort
 import torch
 
@@ -46,8 +47,30 @@ def main():
         output_names=["logit"],
         dynamic_axes={"seq": {0: "batch"}, "pad_mask": {0: "batch"}, "static": {0: "batch"}, "logit": {0: "batch"}},
         opset_version=17,
+        dynamo=False,
     )
     print(f"Exported ONNX model to {ONNX_PATH} ({ONNX_PATH.stat().st_size / 1e6:.2f} MB)", flush=True)
+
+    # --- Numerical parity check: ONNX Runtime output must match PyTorch ---
+    verify_sess = ort.InferenceSession(str(ONNX_PATH), providers=["CPUExecutionProvider"])
+    check_seq = torch.randn(3, seq_len, ckpt["num_dynamic"])
+    check_pad = torch.ones(3, seq_len)
+    check_static = torch.randn(3, ckpt["num_static"])
+    with torch.no_grad():
+        torch_out = model(check_seq, check_pad, check_static).numpy()
+    onnx_out = verify_sess.run(None, {
+        "seq": check_seq.numpy().astype(np.float32),
+        "pad_mask": check_pad.numpy().astype(np.float32),
+        "static": check_static.numpy().astype(np.float32),
+    })[0]
+    max_abs_diff = float(np.max(np.abs(torch_out - onnx_out.squeeze())))
+    print(f"Parity check: max |PyTorch - ONNX| = {max_abs_diff:.6f}", flush=True)
+    if max_abs_diff > 1e-3:
+        raise RuntimeError(f"ONNX export parity check FAILED (diff={max_abs_diff}) -- exported model does not match PyTorch")
+    n_onnx_params = sum(int(np.prod(t.dims)) for t in onnx.load(str(ONNX_PATH)).graph.initializer)
+    print(f"ONNX initializer parameter count: {n_onnx_params:,} (PyTorch: {model.num_parameters():,})", flush=True)
+    if n_onnx_params < model.num_parameters() * 0.9:
+        raise RuntimeError("ONNX graph is missing weights (likely GRU flat_weights not captured) -- export is broken")
 
     # --- Latency benchmark: PyTorch CPU vs ONNX Runtime CPU, single-sample inference ---
     n_warmup, n_runs = 10, 200

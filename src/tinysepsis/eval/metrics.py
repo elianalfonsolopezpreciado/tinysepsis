@@ -95,7 +95,8 @@ def lead_time_hours(patient_alarm_hours: list[int], t_susp: int, sustained: bool
     patient was never alarmed."""
     if not patient_alarm_hours:
         return None
-    hrs = sorted(patient_alarm_hours)
+    t_susp = int(t_susp)
+    hrs = sorted(int(h) for h in patient_alarm_hours)
     if not sustained:
         return float(t_susp - hrs[0])
     # find first alarm hour h such that all subsequent modeled hours up to

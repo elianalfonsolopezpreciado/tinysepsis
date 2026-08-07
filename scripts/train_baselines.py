@@ -21,6 +21,7 @@ from tinysepsis.models.clinical_scores import qsofa_lite, news2_lite  # noqa: E4
 
 DATA_PATH = ROOT / "data" / "processed" / "enriched.parquet"
 OUT_DIR = ROOT / "results" / "predictions"
+CKPT_DIR = ROOT / "results" / "checkpoints"
 LABEL = "label_6h"
 
 TABULAR_COLS = (
@@ -57,9 +58,15 @@ def save_predictions(name, split, pid, hour, y, prob, sub):
 
 
 def main():
+    CKPT_DIR.mkdir(parents=True, exist_ok=True)
     print("Loading enriched.parquet...", flush=True)
     df = pl.read_parquet(DATA_PATH)
     df = df.with_columns(qsofa_lite(df), news2_lite(df))
+    # Pre-first-observation hours have no vitals yet (forward-fill can't
+    # look backward), so the score is null there; treat "not yet measured"
+    # as "no concerning finding" (score 0), consistent with how leading
+    # nulls are handled elsewhere in the pipeline (normalize.py).
+    df = df.with_columns(pl.col("qsofa_lite").fill_null(0), pl.col("news2_lite").fill_null(0))
 
     splits = ["train", "val", "test", "external_test"]
     data = {s: load_split(df, s) for s in splits}
@@ -108,7 +115,7 @@ def main():
         X, y, pid, hour, sub = data[split]
         prob = xgb_model.predict_proba(X)[:, 1]
         save_predictions("xgboost", split, pid, hour, y, prob, sub)
-    xgb_model.save_model(str(OUT_DIR.parent / "checkpoints" / "xgboost.json"))
+    xgb_model.save_model(str(CKPT_DIR / "xgboost.json"))
 
     # --- LightGBM ---
     print("Training LightGBM...", flush=True)
@@ -128,8 +135,7 @@ def main():
         prob = lgb_model.predict_proba(X)[:, 1]
         save_predictions("lightgbm", split, pid, hour, y, prob, sub)
 
-    (OUT_DIR.parent / "checkpoints").mkdir(parents=True, exist_ok=True)
-    lgb_model.booster_.save_model(str(OUT_DIR.parent / "checkpoints" / "lightgbm.txt"))
+    lgb_model.booster_.save_model(str(CKPT_DIR / "lightgbm.txt"))
 
     print("All baselines trained and predictions saved.", flush=True)
 
