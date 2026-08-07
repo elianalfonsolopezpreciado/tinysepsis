@@ -1,0 +1,22 @@
+--extra-index-url https://download.pytorch.org/whl/cu128
+torch
+numpy
+polars
+pyarrow
+scikit-learn
+xgboost
+lightgbm
+matplotlib
+seaborn
+tqdm
+rich
+onnx
+onnxruntime
+shap
+fastapi
+uvicorn
+pydantic
+pytest
+pytest-cov
+httpx
+boto3
