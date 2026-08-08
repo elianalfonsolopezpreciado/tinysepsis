@@ -11,21 +11,30 @@ See [`paper/main.pdf`](paper/main.pdf) for the full writeup (methods, results, l
 ## Headline result
 
 Trained on Hospital A (PhysioNet Challenge 2019) and evaluated, without any further tuning, on Hospital B
-(a different institution never seen during development):
+(a different institution never seen during development). Retrained under 5 random seeds each
+(`scripts/run_multiseed.py`) to check the finding isn't a lucky initialization:
 
-| Model | Internal AUROC (Hospital A) | External AUROC (Hospital B) | Drop |
+| Model | Internal AUROC | External AUROC | Gap (mean ± std, n=5) |
 |---|---|---|---|
-| XGBoost | 0.807 | 0.687 | −0.120 |
-| Logistic Regression | 0.770 | 0.644 | −0.126 |
-| LightGBM | 0.782 | 0.665 | −0.117 |
-| **TinySepsis (ours)** | 0.699 | **0.680** | **−0.019** |
+| XGBoost | 0.805 ± 0.003 | 0.686 ± 0.003 | 0.119 ± 0.003 |
+| Logistic Regression | 0.770 ± 0.000 | 0.644 ± 0.000 | 0.126 ± 0.000 |
+| LightGBM | 0.786 ± 0.002 | 0.670 ± 0.006 | 0.115 ± 0.007 |
+| **TinySepsis (ours)** | 0.708 ± 0.010 | 0.650 ± 0.024 | **0.058 ± 0.030** |
 
-The tabular baselines win internally but lose 0.10–0.13 AUROC on the external hospital; TinySepsis loses
-almost none, ending within 0.01 AUROC of the best tabular baseline externally despite trailing it by over
-0.1 internally. This is the same internal-vs-external gap pattern documented for the Epic Sepsis Model in
-real-world deployment (Wong et al., *JAMA Internal Medicine*, 2021) — reproduced here in miniature, under
-full experimental control, with a full accounting in `paper/main.pdf` (Sections 8–9) including the
-single-run-variance caveat (Section "Limitations").
+The tabular baselines win internally in every seed but lose 0.115–0.126 AUROC on average on the external
+hospital; TinySepsis loses less than half that (0.058), and its degradation was smaller than all 15
+baseline-seed runs (Welch's t p ≤ 0.011, Mann-Whitney p = 0.004 against each baseline, Bonferroni-corrected
+— see `results/tables/multiseed_stats.json`, reproducible via `scripts/multiseed_stats.py`). This is the
+same internal-vs-external gap pattern documented for the Epic Sepsis Model in real-world deployment (Wong
+et al., *JAMA Internal Medicine*, 2021) — reproduced here in miniature, under full experimental control.
+
+**This is not the whole story.** At each model's own conformal-calibrated alarm threshold (the threshold
+this project actually argues for, not the fixed-sensitivity threshold used for the table above), TinySepsis
+is the *only* learned model whose clinical utility turns negative on the external hospital — its calibrated
+false-alarm rate roughly triples there (19.8% vs. a 10% target) while XGBoost's and LightGBM's do not. AUROC
+ranking transfers across hospitals better for TinySepsis; the calibrated decision threshold transfers worse.
+Full accounting, including this caveat and the single-hospital-pair limitation, is in `paper/main.pdf`
+(Sections 9, "Discussion", "Limitations").
 
 ## What this is
 
@@ -70,6 +79,9 @@ python scripts/calibrate_and_conformal.py
 python scripts/export_onnx.py
 python scripts/run_ablations.py         # missingness / sequence-length ablations
 python scripts/evaluate.py              # consolidated tables + figures
+python scripts/utility_at_conformal_threshold.py  # utility at each model's own conformal tau, not just fixed-sensitivity
+python scripts/run_multiseed.py         # 5-seed retrain of TinySepsis + LogReg/XGBoost/LightGBM (~1-1.5h)
+python scripts/multiseed_stats.py       # Welch/Mann-Whitney/Cohen's d on the multi-seed gaps
 python scripts/generate_paper_tables.py # refresh paper/tables/*.tex from results
 ```
 

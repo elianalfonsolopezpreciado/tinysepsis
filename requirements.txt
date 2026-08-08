@@ -4,6 +4,7 @@ numpy
 polars
 pyarrow
 scikit-learn
+scipy
 xgboost
 lightgbm
 matplotlib
