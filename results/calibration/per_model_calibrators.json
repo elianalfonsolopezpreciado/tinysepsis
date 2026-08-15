@@ -25,8 +25,8 @@
     "alpha": 0.1
   },
   "tinysepsis": {
-    "temperature": 0.8327436447143555,
-    "conformal_tau": 0.028184089809656143,
+    "temperature": 1.3425917625427246,
+    "conformal_tau": 0.02632870152592659,
     "alpha": 0.1
   }
 }

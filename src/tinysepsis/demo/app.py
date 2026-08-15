@@ -105,9 +105,9 @@ def health():
 @app.post("/predict")
 def predict(req: PredictRequest):
     session, stats, calibrators = _lazy_load()
-    seq, pad_mask, static, contributions = _build_sequence(req)
+    seq, pad_mask, static, contributions = _build_sequence(req)  # pad_mask unused by the ONNX graph (see tiny_sepsis.py)
 
-    (logit,) = session.run(None, {"seq": seq, "pad_mask": pad_mask, "static": static})
+    (logit,) = session.run(None, {"seq": seq, "static": static})
     logit = float(logit.squeeze())
 
     T = calibrators.get("temperature", 1.0)

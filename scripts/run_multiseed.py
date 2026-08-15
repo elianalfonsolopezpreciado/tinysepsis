@@ -40,11 +40,17 @@ def run(cmd, label):
 
 def main():
     for seed in SEEDS:
-        run(
-            [PY, str(ROOT / "scripts" / "train_baselines.py"),
-             "--seed", str(seed), "--tag-suffix", f"_seed{seed}", "--skip-clinical-scores"],
-            f"baselines seed={seed}",
+        baselines_done = all(
+            (PRED_DIR / f"{m}_seed{seed}__external_test.parquet").exists() for m in BASELINE_MODELS
         )
+        if baselines_done:
+            print(f"baselines seed={seed}: predictions already on disk, skipping retrain", flush=True)
+        else:
+            run(
+                [PY, str(ROOT / "scripts" / "train_baselines.py"),
+                 "--seed", str(seed), "--tag-suffix", f"_seed{seed}", "--skip-clinical-scores"],
+                f"baselines seed={seed}",
+            )
         run(
             [PY, str(ROOT / "scripts" / "train_model.py"),
              "--tag", f"tinysepsis_seed{seed}", "--seed", str(seed)],

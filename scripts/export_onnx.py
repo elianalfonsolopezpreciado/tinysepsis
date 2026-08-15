@@ -35,17 +35,16 @@ def main():
 
     seq_len = args["seq_len"]
     dummy_seq = torch.randn(1, seq_len, ckpt["num_dynamic"])
-    dummy_pad = torch.ones(1, seq_len)
     dummy_static = torch.randn(1, ckpt["num_static"])
 
     ONNX_PATH.parent.mkdir(parents=True, exist_ok=True)
     torch.onnx.export(
         model,
-        (dummy_seq, dummy_pad, dummy_static),
+        (dummy_seq, dummy_static),
         str(ONNX_PATH),
-        input_names=["seq", "pad_mask", "static"],
+        input_names=["seq", "static"],
         output_names=["logit"],
-        dynamic_axes={"seq": {0: "batch"}, "pad_mask": {0: "batch"}, "static": {0: "batch"}, "logit": {0: "batch"}},
+        dynamic_axes={"seq": {0: "batch"}, "static": {0: "batch"}, "logit": {0: "batch"}},
         opset_version=17,
         dynamo=False,
     )
@@ -54,13 +53,11 @@ def main():
     # --- Numerical parity check: ONNX Runtime output must match PyTorch ---
     verify_sess = ort.InferenceSession(str(ONNX_PATH), providers=["CPUExecutionProvider"])
     check_seq = torch.randn(3, seq_len, ckpt["num_dynamic"])
-    check_pad = torch.ones(3, seq_len)
     check_static = torch.randn(3, ckpt["num_static"])
     with torch.no_grad():
-        torch_out = model(check_seq, check_pad, check_static).numpy()
+        torch_out = model(check_seq, check_static).numpy()
     onnx_out = verify_sess.run(None, {
         "seq": check_seq.numpy().astype(np.float32),
-        "pad_mask": check_pad.numpy().astype(np.float32),
         "static": check_static.numpy().astype(np.float32),
     })[0]
     max_abs_diff = float(np.max(np.abs(torch_out - onnx_out.squeeze())))
@@ -78,16 +75,15 @@ def main():
     def bench_torch():
         with torch.no_grad():
             for _ in range(n_warmup):
-                model(dummy_seq, dummy_pad, dummy_static)
+                model(dummy_seq, dummy_static)
             t0 = time.perf_counter()
             for _ in range(n_runs):
-                model(dummy_seq, dummy_pad, dummy_static)
+                model(dummy_seq, dummy_static)
             return (time.perf_counter() - t0) / n_runs * 1000
 
     sess = ort.InferenceSession(str(ONNX_PATH), providers=["CPUExecutionProvider"])
     inputs = {
         "seq": dummy_seq.numpy().astype(np.float32),
-        "pad_mask": dummy_pad.numpy().astype(np.float32),
         "static": dummy_static.numpy().astype(np.float32),
     }
 

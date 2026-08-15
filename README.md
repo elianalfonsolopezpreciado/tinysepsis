@@ -121,16 +121,31 @@ includes a "not for clinical use" disclaimer. No data leaves the machine.
 
 ```
 src/tinysepsis/
-  data/       ingestion, feature engineering, labels, splits, normalization, PyTorch Dataset
-  models/     TinySepsis GRU, clinical-score baselines
-  eval/       metrics, calibration, conformal risk control, clinical utility function
-  demo/       FastAPI research demo
-scripts/      standalone, ordered pipeline scripts (see above)
-tests/        pytest suite
-paper/        LaTeX source, references.bib, generated tables/figures, main.pdf
-results/      generated: predictions, tables, figures, calibration artifacts, checkpoints (gitignored)
-data/         generated: raw + processed parquet (gitignored; regenerate via scripts/download_data.py)
+  data/         ingestion, feature engineering, labels, splits, normalization, PyTorch Dataset
+  models/       TinySepsis GRU, clinical-score baselines
+  eval/         metrics, calibration, conformal risk control, clinical utility function
+  demo/         FastAPI research demo
+  integration/  CDS Hooks / FHIR EHR integration reference implementation (see its own README)
+scripts/        standalone, ordered pipeline scripts (see above)
+tests/          pytest suite
+paper/          LaTeX source, references.bib, generated tables/figures, main.pdf
+regulatory/     model card, risk management plan, GMLP self-assessment, PCCP, clinical
+                validation protocol -- draft groundwork toward real hospital deployment (see its own README)
+results/        generated: predictions, tables, figures, calibration artifacts, checkpoints (gitignored)
+data/           generated: raw + processed parquet (gitignored; regenerate via scripts/download_data.py)
 ```
+
+## Toward real hospital deployment
+
+TinySepsis started as a research paper's worth of pipeline; `regulatory/` and
+`src/tinysepsis/integration/` are the beginning of the much larger set of things a
+real hospital deployment needs beyond model accuracy: a formal intended-use analysis
+(including whether this even needs FDA clearance), a risk management plan, a
+GMLP self-assessment, and a prospective clinical validation protocol, plus a working
+CDS Hooks/FHIR integration so "runs in the EHR" is a demonstrated capability, not a
+claim. Start at [`regulatory/README.md`](regulatory/README.md) for the honest
+gap analysis -- what's done, what's drafted, and what still requires a clinician,
+a biostatistician, and real capital, none of which a repository can substitute for.
 
 ## Data & licensing
 

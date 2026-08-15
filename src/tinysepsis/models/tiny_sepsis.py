@@ -52,12 +52,22 @@ class TinySepsisModel(nn.Module):
             nn.Linear(hidden_size // 2, 1),
         )
 
-    def forward(self, seq: torch.Tensor, pad_mask: torch.Tensor, static: torch.Tensor):
+    def forward(self, seq: torch.Tensor, static: torch.Tensor):
         """
         seq: (B, T, num_dynamic_features)
-        pad_mask: (B, T) 1=real timestep, 0=padding (left-padded)
         static: (B, num_static_features)
         returns: logits (B,)
+
+        Sequences are always LEFT-padded (see tinysepsis.data.dataset): the
+        current hour's observation is placed at the final timestep, T-1,
+        regardless of how many real hours precede it. The last real
+        observation is therefore always out[:, -1, :] -- no padding mask or
+        length-dependent gather is needed (an earlier version took a
+        pad_mask argument and gathered at `pad_mask.sum(dim=1) - 1`, which
+        is correct only for RIGHT-padded sequences; for a left-padded
+        sample with fewer than T real timesteps it silently read a
+        zero-padded position instead of the true last observation -- see
+        tests/test_model.py's regression test for this).
         """
         x = self.input_proj(seq)  # (B, T, H/2)
         x = torch.relu(x)
@@ -66,11 +76,7 @@ class TinySepsisModel(nn.Module):
         h0 = h0_flat.unsqueeze(0).repeat(self.gru.num_layers, 1, 1).contiguous()
 
         out, _ = self.gru(x, h0)  # (B, T, H)
-
-        # Masked mean+last pooling: use the last *real* (non-padded) timestep.
-        lengths = pad_mask.sum(dim=1).clamp(min=1).long()  # (B,)
-        idx = (lengths - 1).view(-1, 1, 1).expand(-1, 1, out.size(-1))
-        last_hidden = out.gather(1, idx).squeeze(1)  # (B, H)
+        last_hidden = out[:, -1, :]  # (B, H)
 
         logits = self.head(last_hidden).squeeze(-1)  # (B,)
         return logits

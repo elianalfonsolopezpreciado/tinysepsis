@@ -1,20 +1,20 @@
 {
   "val": {
-    "tau": 0.028184089809656143,
-    "empirical_fpr": 0.1365556884578647,
-    "empirical_tpr": 0.42786069651741293,
+    "tau": 0.02632870152592659,
+    "empirical_fpr": 0.1070399022450929,
+    "empirical_tpr": 0.3787313432835821,
     "target_alpha": 0.1
   },
   "test": {
-    "tau": 0.028184089809656143,
-    "empirical_fpr": 0.13717013108290388,
-    "empirical_tpr": 0.3475836431226766,
+    "tau": 0.02632870152592659,
+    "empirical_fpr": 0.10144225780790647,
+    "empirical_tpr": 0.27633209417596033,
     "target_alpha": 0.1
   },
   "external_test": {
-    "tau": 0.028184089809656143,
-    "empirical_fpr": 0.1978661235465213,
-    "empirical_tpr": 0.4112465129936867,
+    "tau": 0.02632870152592659,
+    "empirical_fpr": 0.1220356356036554,
+    "empirical_tpr": 0.30245191601820587,
     "target_alpha": 0.1
   }
 }

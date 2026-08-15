@@ -34,10 +34,9 @@ def evaluate(model, loader, device):
     with torch.no_grad():
         for batch in loader:
             seq = batch["seq"].to(device)
-            pad_mask = batch["pad_mask"].to(device)
             static = batch["static"].to(device)
             with torch.autocast(device_type="cuda", dtype=torch.float16, enabled=device.type == "cuda"):
-                logits = model(seq, pad_mask, static)
+                logits = model(seq, static)
             probs = torch.sigmoid(logits.float()).cpu().numpy()
             all_probs.append(probs)
             all_labels.append(batch["label"].numpy())
@@ -121,12 +120,11 @@ def main():
         optimizer.zero_grad()
         for step, batch in enumerate(train_loader):
             seq = batch["seq"].to(device)
-            pad_mask = batch["pad_mask"].to(device)
             static = batch["static"].to(device)
             label = batch["label"].to(device)
 
             with torch.autocast(device_type="cuda", dtype=torch.float16, enabled=device.type == "cuda"):
-                logits = model(seq, pad_mask, static)
+                logits = model(seq, static)
                 loss = criterion(logits, label) / args.grad_accum
 
             scaler.scale(loss).backward()
