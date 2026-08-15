@@ -13,6 +13,8 @@ here roughly in the order a real deployment conversation would need them.
 | [`post_market_surveillance_plan.md`](post_market_surveillance_plan.md) | How would we know if it degrades after deployment? |
 | [`predetermined_change_control_plan.md`](predetermined_change_control_plan.md) | Which future changes (retraining, recalibration, new sites) are pre-authorized vs. need a full new review? |
 | [`clinical_validation_protocol.md`](clinical_validation_protocol.md) | The actual prospective study design needed to generate real (not retrospective) evidence -- the document to bring to an IRB or a hospital research office. |
+| [`model_improvement_roadmap.md`](model_improvement_roadmap.md) | Given what other 2024-2025 sepsis-prediction models do (Transformers, Neural CDEs, uncertainty-aware attention), what's actually worth building next, prioritized by impact on *this project's* own evaluation axes, not benchmark chasing. |
+| [`mexico_market_roadmap.md`](mexico_market_roadmap.md) | For Pear Labs specifically: COFEPRIS regulatory path, who to sell to first, pricing, and a phased timeline from today to a paid hospital deployment in Mexico. |
 
 ## What this is, and is not
 

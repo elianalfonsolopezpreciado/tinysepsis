@@ -2,11 +2,15 @@
 
 **Calibrated, low-resource early warning for sepsis with a compact (<200K-parameter) temporal model.**
 
+A research project by **Pear Labs**.
+
 Research prototype. **Not a medical device. Not for clinical use.** Trained and evaluated entirely on the
 open-access [PhysioNet/Computing in Cardiology Challenge 2019](https://physionet.org/content/challenge-2019/1.0.0/)
 dataset — no PhysioNet account, CITI training, or data use agreement required.
 
-See [`paper/main.pdf`](paper/main.pdf) for the full writeup (methods, results, limitations, ethics).
+See [`paper/main.pdf`](paper/main.pdf) for the full writeup (methods, results, limitations, ethics), and
+[`regulatory/mexico_market_roadmap.md`](regulatory/mexico_market_roadmap.md) for the current thinking on
+what it would take to bring this to a real Mexican hospital deployment.
 
 ## Headline result
 
