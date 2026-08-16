@@ -23,11 +23,9 @@ from typing import Any
 from fastapi import FastAPI
 from pydantic import BaseModel
 
-from tinysepsis.demo.app import _build_sequence, _lazy_load
+from tinysepsis.demo.app import score_and_explain
 from tinysepsis.integration.fhir_adapter import build_predict_request
 from tinysepsis.integration.fhir_mapping import UNVERIFIED_CODES
-
-import numpy as np
 
 app = FastAPI(title="TinySepsis CDS Hooks Service")
 
@@ -119,17 +117,11 @@ def sepsis_risk_hook(req: CdsHooksRequest):
             }]
         }
 
-    session, stats, calibrators = _lazy_load()
-    seq, pad_mask, static, contributions = _build_sequence(predict_req)  # pad_mask unused by the ONNX graph
-    (logit,) = session.run(None, {"seq": seq, "static": static})
-    logit = float(logit.squeeze())
-
-    T = calibrators.get("temperature", 1.0)
-    prob = 1.0 / (1.0 + np.exp(-logit / T))
-    tau = calibrators.get("conformal_tau", 0.5)
-    alarm = bool(prob >= tau)
-    top_factors = sorted(contributions.items(), key=lambda kv: kv[1], reverse=True)[:5]
-    top_factors = [f for f, v in top_factors if v > 0]
+    result = score_and_explain(predict_req)
+    prob = result["risk_probability"]
+    tau = result["conformal_threshold"]
+    alarm = result["alarm_raised"]
+    top_factors = result["top_contributing_factors"]
 
     indicator = "warning" if alarm else "info"
     summary = (
