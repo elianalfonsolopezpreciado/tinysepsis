@@ -1,8 +1,12 @@
-"""Train TinySepsisModel (small GRU) with AMP + gradient accumulation.
+"""Train TinySepsisCDEModel (Neural CDE encoder, Priority 2 of
+regulatory/model_improvement_roadmap.md) on the identical data pipeline,
+splits, and label definition as scripts/train_model.py, so its numbers
+are directly comparable to the GRU's in results/tables.
 
-Resource-constrained defaults (8GB VRAM, 16GB RAM): batch_size=64,
-seq_len=24, hidden_size=128, fp16 autocast, grad accumulation=2.
-Falls back to smaller config automatically on CUDA OOM.
+No AMP/fp16 here: torchcde's ODE integration accumulates numerical error
+across solver steps in a way a single GRU forward pass does not, and
+fp16 risk is not worth the speed here for an exploratory architecture
+comparison -- trains in fp32 throughout.
 """
 import argparse
 import json
@@ -20,7 +24,7 @@ ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT / "src"))
 
 from tinysepsis.data.dataset import TinySepsisDataset  # noqa: E402
-from tinysepsis.models.tiny_sepsis import TinySepsisModel  # noqa: E402
+from tinysepsis.models.tiny_sepsis_cde import TinySepsisCDEModel  # noqa: E402
 from tinysepsis.eval.metrics import auroc, auprc  # noqa: E402
 
 DATA_PATH = ROOT / "data" / "processed" / "enriched.parquet"
@@ -35,9 +39,8 @@ def evaluate(model, loader, device):
         for batch in loader:
             seq = batch["seq"].to(device)
             static = batch["static"].to(device)
-            with torch.autocast(device_type="cuda", dtype=torch.float16, enabled=device.type == "cuda"):
-                logits = model(seq, static)
-            probs = torch.sigmoid(logits.float()).cpu().numpy()
+            logits = model(seq, static)
+            probs = torch.sigmoid(logits).cpu().numpy()
             all_probs.append(probs)
             all_labels.append(batch["label"].numpy())
     y_prob = np.concatenate(all_probs)
@@ -49,17 +52,23 @@ def main():
     p = argparse.ArgumentParser()
     p.add_argument("--label-col", default="label_6h")
     p.add_argument("--seq-len", type=int, default=24)
-    p.add_argument("--hidden-size", type=int, default=128)
-    p.add_argument("--num-layers", type=int, default=2)
-    p.add_argument("--batch-size", type=int, default=64)
-    p.add_argument("--grad-accum", type=int, default=2)
+    p.add_argument("--hidden-size", type=int, default=64)
+    p.add_argument("--mlp-hidden", type=int, default=64)
+    p.add_argument("--solver", default="rk4")
+    p.add_argument("--solver-step-size", type=float, default=1.0)
+    # Profiled empirically: batch=32 left the GPU at ~13% utilization (135 rows/s,
+    # 0.14GB VRAM) -- fixed-step rk4 over T=24 is dominated by per-batch Python/kernel-
+    # launch overhead, not compute, so small batches waste the GPU rather than protect
+    # it. batch=512 hits 2959 rows/s (~22x) at 1.85GB, well under the 8GB budget.
+    p.add_argument("--batch-size", type=int, default=512)
+    p.add_argument("--grad-accum", type=int, default=1)
     p.add_argument("--epochs", type=int, default=15)
     p.add_argument("--lr", type=float, default=3e-4)
     p.add_argument("--dropout", type=float, default=0.1)
     p.add_argument("--weight-decay", type=float, default=0.0)
     p.add_argument("--max-train-patients", type=int, default=None)
     p.add_argument("--patience", type=int, default=4)
-    p.add_argument("--tag", default="tinysepsis")
+    p.add_argument("--tag", default="tinysepsis_cde")
     p.add_argument("--ablation", default="full", choices=["full", "no_missingness", "no_dynamics"])
     p.add_argument("--seed", type=int, default=0)
     args = p.parse_args()
@@ -90,18 +99,19 @@ def main():
     pos_weight = torch.tensor([(1 - pos_rate) / max(pos_rate, 1e-6)], device=device)
     print(f"Train positive rate: {pos_rate:.4f}, pos_weight={pos_weight.item():.2f}", flush=True)
 
-    train_loader = DataLoader(train_ds, batch_size=args.batch_size, shuffle=True,
-                               num_workers=0, pin_memory=(device.type == "cuda"))
-    val_loader = DataLoader(val_ds, batch_size=256, shuffle=False, num_workers=0)
-    test_loader = DataLoader(test_ds, batch_size=256, shuffle=False, num_workers=0)
-    ext_loader = DataLoader(ext_ds, batch_size=256, shuffle=False, num_workers=0)
+    train_loader = DataLoader(train_ds, batch_size=args.batch_size, shuffle=True, num_workers=0)
+    val_loader = DataLoader(val_ds, batch_size=128, shuffle=False, num_workers=0)
+    test_loader = DataLoader(test_ds, batch_size=128, shuffle=False, num_workers=0)
+    ext_loader = DataLoader(ext_ds, batch_size=128, shuffle=False, num_workers=0)
 
-    model = TinySepsisModel(
+    model = TinySepsisCDEModel(
         num_dynamic_features=num_dynamic,
         num_static_features=num_static,
         hidden_size=args.hidden_size,
-        num_layers=args.num_layers,
+        mlp_hidden=args.mlp_hidden,
         dropout=args.dropout,
+        solver=args.solver,
+        solver_options={"step_size": args.solver_step_size},
     ).to(device)
     n_params = model.num_parameters()
     print(f"Model parameters: {n_params:,}", flush=True)
@@ -109,7 +119,6 @@ def main():
     optimizer = torch.optim.AdamW(model.parameters(), lr=args.lr, weight_decay=args.weight_decay)
     scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=args.epochs)
     criterion = torch.nn.BCEWithLogitsLoss(pos_weight=pos_weight)
-    scaler = torch.amp.GradScaler(enabled=(device.type == "cuda"))
 
     best_val_auroc = -1.0
     epochs_no_improve = 0
@@ -126,14 +135,11 @@ def main():
             static = batch["static"].to(device)
             label = batch["label"].to(device)
 
-            with torch.autocast(device_type="cuda", dtype=torch.float16, enabled=device.type == "cuda"):
-                logits = model(seq, static)
-                loss = criterion(logits, label) / args.grad_accum
-
-            scaler.scale(loss).backward()
+            logits = model(seq, static)
+            loss = criterion(logits, label) / args.grad_accum
+            loss.backward()
             if (step + 1) % args.grad_accum == 0:
-                scaler.step(optimizer)
-                scaler.update()
+                optimizer.step()
                 optimizer.zero_grad()
 
             running_loss += loss.item() * args.grad_accum
@@ -169,12 +175,7 @@ def main():
         pids = [ds.index[i][0] for i in range(len(ds))]
         row_idxs = [ds.index[i][1] for i in range(len(ds))]
         iculos = [int(ds.patients[pid]["iculos"][row_idx]) for pid, row_idx in zip(pids, row_idxs)]
-        out = pl.DataFrame({
-            "patient_id": pids,
-            "ICULOS": iculos,
-            "y_true": y_true,
-            "y_prob": y_prob,
-        })
+        out = pl.DataFrame({"patient_id": pids, "ICULOS": iculos, "y_true": y_true, "y_prob": y_prob})
         out.write_parquet(PRED_DIR / f"{args.tag}__{name}.parquet")
         print(f"{name}: AUROC={auroc(y_true, y_prob):.4f} AUPRC={auprc(y_true, y_prob):.4f} "
               f"-> saved {len(out)} predictions", flush=True)
