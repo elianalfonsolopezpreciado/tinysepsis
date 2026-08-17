@@ -1,0 +1,11 @@
+\begin{tabular}{lcc}
+\toprule
+Ensemble & Test AUROC & External AUROC \\
+\midrule
+Single GRU seed (reference) & $0.726$ & $0.679$ \\
+GRU, 5 seeds averaged & $0.755$ & $0.685$ \\
+GRU + Attention, 10 models averaged & $0.763$ & $0.685$ \\
+GRU + Attention + CDE, 15 models averaged & $0.770$ & $\mathbf{0.702}$ \\
++ multi-horizon seeds, 20 models averaged & $0.771$ & $0.702$ \\
+\bottomrule
+\end{tabular}
