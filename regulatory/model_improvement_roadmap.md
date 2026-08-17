@@ -121,6 +121,41 @@ What *is* open, immediately, no credentialing: the **eICU Collaborative Research
 
 **This is a real, actionable caution about the attention and CDE results reported above.** Both looked statistically competitive with (attention) or offered a genuine robustness trade-off against (CDE) the GRU when compared on the Hospital A/B pair alone -- but on a *third*, previously-unseen set of institutions, both nearly double or triple their false-alarm rate against target, while the GRU stays close to (if anything, under) its target budget. Two hospitals is a real distribution-shift test, but it's still only two data points on "does this generalize" -- this result is a concrete demonstration of why that comparison alone is not sufficient grounds to prefer attention or CDE over the GRU, and mildly strengthens the case for keeping the GRU as the primary candidate until broader (ideally full-eICU-scale) validation exists. Raw and summary data: `results/tables/eicu_demo_zeroshot_eval.json`, `eicu_demo_{gru,attn,cde}_per_hospital.csv`.
 
+## Round 2: pushing on levers that don't need new data (2026-08-16)
+
+The user asked, explicitly, for new ways to improve the model using only what's already available -- no new datasets (the eICU/MIMIC-IV credentialing above is a separate, parallel track, already in progress). Two genuinely untried levers, both using zero new data:
+
+### Multi-horizon auxiliary training: real, modest gain, borderline significance
+
+`scripts/train_model_multihorizon.py` trains `TinySepsisModel(output_dim=3)` to predict the 4h/6h/8h labels jointly (all three already exist in `enriched.parquet` via `tinysepsis.data.labels`, so this costs nothing in data, only a wider final layer -- 191,427 params vs.\ the single-horizon model's 191,297), on the theory that the three horizons share almost all their signal and jointly training on them is a soft regularizer against overfitting to any one horizon's label noise. Evaluated (as always) only on the primary 6h task, same 5-seed protocol:
+
+| Model | Test AUROC | External AUROC | Gap |
+|---|---|---|---|
+| TinySepsis (GRU, single-horizon) | $0.740 \pm 0.010$ | $0.667 \pm 0.011$ | $0.072 \pm 0.015$ |
+| Multi-horizon (4h+6h+8h joint) | $\mathbf{0.750 \pm 0.004}$ | $\mathbf{0.679 \pm 0.010}$ | $0.070 \pm 0.011$ |
+
+Test AUROC is higher with much lower seed variance (std $0.004$ vs.\ $0.010$) -- multi-horizon training does look like a real regularizer, at least internally. External AUROC is also higher on average ($+1.2$pp), but the two significance tests disagree at the conventional threshold: Welch's $t=1.73$, $p=0.121$ (not significant) vs.\ Mann-Whitney $p=0.048$ (marginally significant), Cohen's $d=1.10$ (large). This is a real, if borderline, result -- not the clean null of the hyperparameter sweep, but not the clean significance of the ensemble result below either. Given it costs nothing (same data, same architecture, a wider output layer), we'd lean toward adopting it as the new default training recipe, but flag the mixed significance rather than round it up to "confirmed." Raw data: `results/tables/multiseed_multihorizon_raw.csv`, `multiseed_multihorizon_vs_gru_summary.csv`, `multiseed_multihorizon_vs_gru_stats.json`.
+
+### Ensembling everything trained today: the strongest, most confident result of the whole pass
+
+`scripts/evaluate_ensembles.py` simply averages the raw probability outputs of models already sitting on disk from today's other experiments -- no retraining. Patient-level clustered bootstrap was too slow at this row count (117K-758K rows); row-level bootstrap resampling was used instead, which ignores within-patient correlation and likely understates the true confidence interval width, so treat this as suggestive-but-real rather than at the same evidentiary standard as the seed-based tests elsewhere in this document.
+
+| Ensemble | Test AUROC | External AUROC |
+|---|---|---|
+| Single GRU seed (reference) | $0.726$ | $0.679$ |
+| GRU, 5 seeds averaged | $0.755$ | $0.685$ |
+| GRU + Attention, 10 models averaged | $0.763$ | $0.685$ |
+| GRU + Attention + CDE, 15 models averaged | $0.770$ | $\mathbf{0.702}$ |
+| + multi-horizon seeds, 20 models averaged | $0.771$ | $0.702$ |
+
+Every step is bootstrap-positive in 100\% of resamples (1000/1000 originally, 300/300 on the extended run): 5-seed GRU ensembling beats a single seed (external $+0.0056$, CI $[0.0024, 0.0090]$), and -- more interestingly -- averaging across *architectures*, not just seeds, adds real additional value on top of that (external $+0.0173$ more, CI $[0.0148, 0.0197]$, 15-model vs.\ 5-seed-GRU-only). Adding the multi-horizon seeds on top gets a negligible further $+0.0004$ -- diminishing returns have clearly set in by 20 models. **Best external AUROC achieved today, by any method: $0.702$, a genuine $+3.5$pp over the single-model multi-seed mean ($0.667$), for the cost of running inference through 15 already-trained checkpoints instead of one.**
+
+**Calibration is not free with this, and we did not refit it.** All numbers above are raw AUROC on ensembled probabilities; a deployed ensemble would need its own temperature/isotonic/conformal-threshold refit (Section~\ref{sec:calibration}-equivalent) before the utility and false-alarm-rate numbers reported elsewhere in this document could be trusted for an ensemble -- averaging several differently-scaled probability outputs is not automatically well-calibrated just because the AUROC improved, and we have not checked this.
+
+### Where this leaves the 90% target the user asked about
+
+$0.702$ external AUROC, even combining every technique tried across both rounds today (hyperparameters, 2 alternative architectures, longer training, multi-horizon training, and a 20-model ensemble), is still far from $0.90$. We do not believe $0.90$ is reachable on this dataset by further combination of these same techniques -- every lever that touches the model or training recipe rather than the training data's institutional diversity has now been tried, and the pattern across all of them (null, modest, or trade-off, never large) points at a ceiling set by the data, not by insufficient technique. The eICU/MIMIC-IV credentialing track (Limitations, above) remains the only lever with a plausible path to a materially different number.
+
 ## What NOT to do
 
 Chasing benchmark AUROC on the internal split alone would directly undermine this project's own finding: Table 1 already shows XGBoost beats TinySepsis internally by a wide margin, and that isn't the problem this paper is trying to solve. Any architecture change should be evaluated primarily on the **cross-institution gap** and the **conformal-threshold transfer**, exactly the two axes the current paper introduces -- not on internal AUROC, where a bigger model will almost always win and tell us nothing new.

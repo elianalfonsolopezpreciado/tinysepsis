@@ -46,15 +46,22 @@ class TinySepsisDataset(Dataset):
         label_col: str = "label_6h",
         max_patients: int | None = None,
         ablation: str = "full",
+        extra_label_cols: list[str] | None = None,
     ):
+        """extra_label_cols: additional label columns (e.g. label_4h,
+        label_8h alongside the primary label_col=label_6h) for multi-horizon
+        auxiliary-task training. Backward compatible: when None (default),
+        behavior and __getitem__'s output keys are unchanged."""
         self.seq_len = seq_len
         self.label_col = label_col
+        self.extra_label_cols = extra_label_cols or []
         FEATURE_COLS = feature_cols_for_ablation(ablation)
         self.feature_cols = FEATURE_COLS
 
         lf = pl.scan_parquet(parquet_path).filter(pl.col("split") == split)
         df = lf.select(
             ["patient_id", "ICULOS", "hours_since_admission", label_col]
+            + self.extra_label_cols
             + FEATURE_COLS
             + STATIC_COLS
         ).collect()
@@ -76,7 +83,10 @@ class TinySepsisDataset(Dataset):
             static = pdf.select(STATIC_COLS).to_numpy().astype(np.float32)
             labels = pdf[label_col].to_numpy().astype(np.float32)
             iculos = pdf["ICULOS"].to_numpy().astype(np.int32)
-            self.patients[pid] = {"feats": feats, "static": static, "labels": labels, "iculos": iculos}
+            rec = {"feats": feats, "static": static, "labels": labels, "iculos": iculos}
+            if self.extra_label_cols:
+                rec["extra_labels"] = pdf.select(self.extra_label_cols).to_numpy().astype(np.float32)
+            self.patients[pid] = rec
             for row_idx in range(feats.shape[0]):
                 self.index.append((pid, row_idx))
 
@@ -101,10 +111,13 @@ class TinySepsisDataset(Dataset):
         static = rec["static"][row_idx]
         label = rec["labels"][row_idx]
 
-        return {
+        out = {
             "seq": torch.from_numpy(seq),
             "pad_mask": torch.from_numpy(pad_mask),
             "static": torch.from_numpy(static),
             "label": torch.tensor(label, dtype=torch.float32),
             "patient_id": pid,
         }
+        if self.extra_label_cols:
+            out["extra_labels"] = torch.from_numpy(rec["extra_labels"][row_idx])
+        return out

@@ -17,6 +17,19 @@ def test_parameter_count_under_10m():
     assert model.num_parameters() < 10_000_000
 
 
+def test_multi_horizon_output_dim():
+    """output_dim=3 (multi-horizon joint 4h/6h/8h training) must produce
+    (B, 3) logits, not squeeze away the horizon axis the way the default
+    output_dim=1 case squeezes to (B,)."""
+    model = TinySepsisModel(num_dynamic_features=136, num_static_features=2, hidden_size=64, num_layers=2, output_dim=3)
+    batch, seq_len = 8, 24
+    seq = torch.randn(batch, seq_len, 136)
+    static = torch.randn(batch, 2)
+    logits = model(seq, static)
+    assert logits.shape == (batch, 3)
+    assert torch.isfinite(logits).all()
+
+
 def test_gradients_flow_to_all_parameters():
     model = TinySepsisModel(num_dynamic_features=136, num_static_features=2, hidden_size=32, num_layers=1)
     seq = torch.randn(4, 10, 136)

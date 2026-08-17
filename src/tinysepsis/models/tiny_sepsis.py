@@ -24,10 +24,18 @@ class TinySepsisModel(nn.Module):
         num_layers: int = 2,
         dropout: float = 0.1,
         n_raw_features: int = 34,
+        output_dim: int = 1,
     ):
+        """output_dim=1 (default) is the standard single-horizon model, used
+        everywhere else in this project. output_dim=3 turns this into a
+        multi-horizon model (e.g. joint 4h/6h/8h prediction) via a wider
+        final head layer -- forward()'s squeeze(-1) is a no-op when the last
+        dimension isn't 1, so the same forward pass and return shape logic
+        already works for both without further changes."""
         super().__init__()
         self.n_raw_features = n_raw_features
         self.num_dynamic_features = num_dynamic_features
+        self.output_dim = output_dim
 
         # Feature tokenizer: each of the 34 raw clinical channels (value,
         # mask, tslm, delta packed contiguously per-channel-group) gets its
@@ -49,7 +57,7 @@ class TinySepsisModel(nn.Module):
             nn.Linear(hidden_size, hidden_size // 2),
             nn.GELU(),
             nn.Dropout(dropout),
-            nn.Linear(hidden_size // 2, 1),
+            nn.Linear(hidden_size // 2, output_dim),
         )
 
     def forward(self, seq: torch.Tensor, static: torch.Tensor):
