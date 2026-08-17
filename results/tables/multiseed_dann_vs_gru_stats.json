@@ -1,0 +1,16 @@
+{
+  "gap": {
+    "welch_t": -0.13099372569376985,
+    "welch_p": 0.8990662102633157,
+    "mannwhitney_u": 12.0,
+    "mannwhitney_p": 0.5,
+    "cohens_d": -0.08284770647672661
+  },
+  "external_auroc": {
+    "welch_t": 0.7435420449525336,
+    "welch_p": 0.4786082274294724,
+    "mannwhitney_u": 16.0,
+    "mannwhitney_p": 0.27380952380952384,
+    "cohens_d": 0.470257279629862
+  }
+}
