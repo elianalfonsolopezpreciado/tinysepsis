@@ -1,0 +1,9 @@
+\begin{tabular}{lccc}
+\toprule
+Model & Test AUROC & External AUROC & Gap \\
+\midrule
+TinySepsis (GRU, blind holdout) & $0.740 \pm 0.010$ & $0.667 \pm 0.011$ & $0.072 \pm 0.015$ \\
+DANN (transductive, seed 0 only) & $0.733$ & $0.682$ & $0.051$ \\
+\textbf{DANN (transductive, 5-seed mean)} & $0.744 \pm 0.007$ & $0.673 \pm 0.012$ & $0.071 \pm 0.017$ \\
+\bottomrule
+\end{tabular}
