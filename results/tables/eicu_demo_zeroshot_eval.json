@@ -1,0 +1,47 @@
+[
+  {
+    "model": "tinysepsis_gru",
+    "n_rows": 144528,
+    "n_patients": 2520,
+    "n_positive_rows": 6,
+    "raw_auroc": 0.526930155962414,
+    "raw_auprc": 4.814308465229552e-05,
+    "conformal_tau": 0.02632870152592659,
+    "empirical_fpr": 0.06365120881249914,
+    "alarms_per_1000h": 63.64856636776265,
+    "mean_calibrated_prob": 0.008947220630943775,
+    "per_hospital_alarm_rate_std": 0.08627549216471421,
+    "per_hospital_alarm_rate_mean": 0.045665017671513826,
+    "n_hospitals": 186
+  },
+  {
+    "model": "tinysepsis_attn",
+    "n_rows": 144528,
+    "n_patients": 2520,
+    "n_positive_rows": 6,
+    "raw_auroc": 0.054735611187224066,
+    "raw_auprc": 2.541010130474498e-05,
+    "conformal_tau": 0.03334040939807892,
+    "empirical_fpr": 0.2093383706286932,
+    "alarms_per_1000h": 209.3296800619949,
+    "mean_calibrated_prob": 0.018871083855628967,
+    "per_hospital_alarm_rate_std": 0.1534640192982137,
+    "per_hospital_alarm_rate_mean": 0.16546342118922067,
+    "n_hospitals": 186
+  },
+  {
+    "model": "tinysepsis_cde",
+    "n_rows": 144528,
+    "n_patients": 2520,
+    "n_positive_rows": 6,
+    "raw_auroc": 0.03460142169819591,
+    "raw_auprc": 2.4615884156526676e-05,
+    "conformal_tau": 0.027427319437265396,
+    "empirical_fpr": 0.1902547708999322,
+    "alarms_per_1000h": 190.24687257832392,
+    "mean_calibrated_prob": 0.01814347505569458,
+    "per_hospital_alarm_rate_std": 0.0772195421875839,
+    "per_hospital_alarm_rate_mean": 0.16843169392727902,
+    "n_hospitals": 186
+  }
+]

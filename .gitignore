@@ -2,6 +2,7 @@
 __pycache__/
 *.pyc
 data/raw/
+data/raw_eicu_demo/
 data/processed/
 results/checkpoints/
 results/predictions/
