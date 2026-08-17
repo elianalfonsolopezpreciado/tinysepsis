@@ -1,0 +1,9 @@
+\begin{tabular}{lccccc}
+\toprule
+Model & Params & Test AUROC & External AUROC & Gap & Gap std \\
+\midrule
+\textbf{TinySepsis (GRU, ours)} & 191{,}297 & $0.740 \pm 0.010$ & $0.667 \pm 0.011$ & $0.072$ & $0.015$ \\
+Neural CDE & 576{,}513 & $0.686 \pm 0.006$ & $0.651 \pm 0.005$ & $\mathbf{0.035}$ & $\mathbf{0.008}$ \\
+Attention (Transformer encoder) & 79{,}681 & $0.745 \pm 0.005$ & $0.663 \pm 0.022$ & $0.082$ & $0.023$ \\
+\bottomrule
+\end{tabular}
